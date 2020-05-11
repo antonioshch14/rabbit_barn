@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding ="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" >
+  <PropertyGroup Label="Globals" >
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{a504fcb3-4113-4d74-9c0f-68419d8beb8a}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\ArduinoRobotMotorBoard.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\EasyTransfer2.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\lineFollow.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Multiplexer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)src\ArduinoRobotMotorBoard.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\EasyTransfer2.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\LineFollow.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Multiplexer.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="$(MSBuildThisFileDirectory)library.properties" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.adoc" />
+  </ItemGroup>
+</Project>

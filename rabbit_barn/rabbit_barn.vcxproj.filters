@@ -17,5 +17,9 @@
   <ItemGroup>
     <None Include="rabbit_barn.ino" />
   </ItemGroup>
- 
+  <ItemGroup>
+    <ClInclude Include="__vm\.rabbit_barn.vsarduino.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

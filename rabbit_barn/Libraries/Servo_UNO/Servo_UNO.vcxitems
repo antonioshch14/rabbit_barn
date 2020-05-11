@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding ="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" >
+  <PropertyGroup Label="Globals" >
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{8034af23-1022-4d0e-ab69-2c42b20654b9}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\avr\Servo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\megaavr\Servo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\nrf52\Servo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\sam\Servo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\samd\Servo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\stm32f4\Servo.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)src\Servo.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\avr\ServoTimers.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\megaavr\ServoTimers.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\nrf52\ServoTimers.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\sam\ServoTimers.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\samd\ServoTimers.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\stm32f4\ServoTimers.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="$(MSBuildThisFileDirectory)keywords.txt" />
+<Text Include="$(MSBuildThisFileDirectory)library.properties" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.adoc" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding ="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" >
+  <PropertyGroup Label="Globals" >
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{28ac6ab4-a68c-43c1-a07c-0789ffcf1c58}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\EduIntro.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Button\Button.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\DHT11\DHT11.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Generic\Analoginput.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Generic\AnalogInput2.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Generic\DigitalInput.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Generic\Output.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\IMU\Motion.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\LED\LED.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\LightSensor\LightSensor.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\LM35\LM35.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\MosFet\MosFet.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Piezo\Piezo.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\PIR\PIR.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Potentiometer\Potentiometer.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Relay\Relay.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\ServoMotor\ServoMotor.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\Thermistor\Thermistor.cpp" />
+<ClCompile Include="$(MSBuildThisFileDirectory)src\WiFiComm\WiFiComm.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)src\EduIntro.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Button\Button.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\DHT11\DHT11.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Generic\AnalogInput.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Generic\AnalogInput2.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Generic\DigitalInput.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Generic\Output.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\IMU\Motion.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\LED\LED.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\LightSensor\LightSensor.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\LM35\LM35.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\MosFet\MosFet.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Piezo\Piezo.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Piezo\pitches.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\PIR\PIR.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Potentiometer\Potentiometer.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Relay\Relay.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\ServoMotor\ServoMotor.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\Thermistor\Thermistor.h" />
+<ClInclude Include="$(MSBuildThisFileDirectory)src\WiFiComm\WiFiComm.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="$(MSBuildThisFileDirectory)keywords.txt" />
+<Text Include="$(MSBuildThisFileDirectory)library.properties" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)CONTRIBUTING.md" />
+<None Include="$(MSBuildThisFileDirectory)library.json" />
+<None Include="$(MSBuildThisFileDirectory)LICENSE" />
+<None Include="$(MSBuildThisFileDirectory)README.md" />
+  </ItemGroup>
+</Project>
