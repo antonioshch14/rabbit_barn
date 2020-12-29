@@ -2,44 +2,79 @@
 #define DHTTYPE DHT22
 #include <U8x8lib.h>
 #include <Servo.h>
-#define DHT22OUTDOOR 8
-#define DHT22inDOOR 10
-#define RELAYFAN 12
-#define RELAYLIGH1 5
-#define RELAYLIGH2 4
 #define RELAYSERVO 2
+#define DHTRESETRELAY 3
+#define RELAYLIGH2 4
+#define RELAYLIGH1 5
 #define DISPLAYSCK 6
 #define DISPLAYSDA 7
-#define MQ135 A5
-#define SUNSENSOR A4
-#define HUMANSENSOR A3
+#define DHT22OUTDOOR 8
 #define SERVODATA 9
-#define SERVOPOSOPEN 10
+#define DHT22inDOOR 10
+#define SERVODATAREMOUT 11
+#define RELAYFAN 12
+//test
+#define MQ9TEST A0
+#define MQ135TEST A1
+//
+#define RELAYFANREMOUT A2
+#define HUMANSENSOR A3
+#define SUNSENSOR A4
+#define MQ135 A5
 #define SERVOPOSCLOSE 60
+#define SERVOPOSOPEN 10
 #define SERVOTIMETOOPERATE 2000
-#define HUMADETECTEDRESET 600000 // 300000 time span for man detection
-#define HOURNIGHT 23
+#define HUMADETECTEDRESET 600000 // 600000 time span for man detection
+#define HOURNIGHT 23 //23
 #define HOURDAY  8
 #define TASK_SENSORREAD 2000
 #define TASK_DATASEND 10000
 #define TASK_ESPUPDATE 30000
 #define TEMPTHRESHOLD 25
-#define HUMIDTHRESHOLD 90
-#define FANTIMETOWORK  3600000//3600000  60000
-#define FANPAUSE  1200000//  20000
+#define HUMIDTHRESHOLD 50
+#define FANTIMETOWORK  14400000//3600000  60000
+
 #define BLINDTHRESHOLD 10 //iner temp to open blind
-#define DHTRESETRELAY 3
+
 #define DHTRESETTIME 1000
 #define SUNTOONLIGHT 600
 #define SUNDIFFERENCE 500 //sun sensor mesures les then detected sun is high. the difference SUNTOONLIGHT and SUNDIFFERENCE 
 							//has to be not less than 0
+#define FAN_RATIO_SLOW 0.2 // this * FANPAUSE = time to work
+#define FAN_RATIO_LOW 1
+#define FAN_RATIO_MED 6
+#define FAN_RATIO_INTENCE 12
+#define FAN_RATIO_SINTENCE 20
+#define TEMP_SLOW 2
+#define TEMP_LOW 3
+#define TEMP_MEDIUM 4
+#define TEMP_INTENCE 7
+#define TEMP_SINTENCE 10
 
+//#define test
+#ifdef test
+#define LOG(X) Serial.println(X);
+#define LOGL(X)  Serial.print(X);
+#define FANPAUSE  5000//  20000
+float indoorTempTest=5, indoorHumidTest=97, outdoorTempTest=-5, outdoorHumidTest=99;//test values
+#else
+#define LOG(X); 
+#define LOGL(X);
+#define FANPAUSE  1200000//  20000
+#endif
+/*template<typename T>
+T Add(T val1, T val2) {
+	return (val1 < val2) ? val1 * val2 : val1/val2;
+}*/
+//bool get_field_value(String Message, String field, int* value = 0, int* index = 0);
+//bool get_field_value(String Message, String field, unsigned long* ulValue = 0, float* floatValue = 0);
 float tempDifoff = 0;
 float tempDifon = 0;
-float humidon = 0;
-float humidoff =0;
+float humidon = 5;
+float humidoff =-5;
 float airDifoff = 0;
 float airDifon = 0;
+int humidTrget = HUMIDTHRESHOLD;
 bool ServerConected;
 int hour, min;
 U8X8_SH1106_128X64_NONAME_SW_I2C u8x8(DISPLAYSCK, DISPLAYSDA);
@@ -51,7 +86,7 @@ class task;
 class Fan;
 class Light;
 class ventionBlind;
-void display(int);
+void display(int index=0);
 void readsensors();
 void sendDataToServer(int index = 1);
 void ReadDataSerial();
@@ -138,7 +173,7 @@ struct sunAndAir :public sensor {
 		valueBuf = 0;
 		sensor::dataReadCounter = 0;
 	}
-}sun, air;
+}sun, air,mq135test,mq9test;
 struct Man :public sensor {
 	bool detected;
 	bool active;
@@ -274,6 +309,7 @@ task task_dataSend(TASK_DATASEND);
 task task_CheckRespons(60000);
 task task_ESPupdate(TASK_ESPUPDATE);
 task task_resetDHT(DHTRESETTIME);
+task task_askSettingFromServer(30000);
 
 
 struct Light
@@ -282,6 +318,7 @@ struct Light
 	bool light2;
 	bool night;
 	bool automatedOperation=true;
+	bool automatedOperationWithOutHumanActiv = true;
 	void check(int detectedSun) {
 		if (automatedOperation) {
 			if (!night) { //day routine
@@ -296,14 +333,14 @@ struct Light
 					}
 				}
 			}
-			else { // night routene
-				if (man.invalidData) {
+			else { // night routine
+				if (man.invalidData || automatedOperationWithOutHumanActiv) {
 					if (light1 && light2) {
 						light1 = false; light2 = false; // night time switch off
 					}
 				}
 				else {
-					if (!light1 && !light2) {
+					if (!light1 && !light2 && detectedSun > SUNTOONLIGHT) {
 						light1 = true; light2 = true; // if human detected light on
 					}
 				}
@@ -317,7 +354,7 @@ struct Light
 		else digitalWrite(RELAYLIGH2, HIGH);
 	}
 	
-	void set(int index) { //set 0 to switch both off, 1: 1-on 2-off, 2: 1-off, 1-on, 3: both on, 3- automated loght oparation
+	void set(int index) { //set 0 to switch both off, 1: 1-on 2-off, 2: 1-off, 2-on, 3: both on, 
 							//4-automated operation, 5-night mode; 6-day mode
 		switch (index) {
 		case 0: light1 = false; light2 = false; automatedOperation = false; break;
@@ -335,8 +372,10 @@ struct Light
 
 class Fan {
 	bool oneTimeStart;
+
 public:
 	bool on;
+	bool remoteFanOn;
 	bool switchedOnTemp;
 	bool switchedOnAir;
 	bool switchedOnHumid;
@@ -344,6 +383,67 @@ public:
 	unsigned long setTimeToWork;
 	unsigned long pauseStart;
 	unsigned long lastCheck;
+	unsigned long fanTimeToWork;
+	unsigned long fanTimePause= FANPAUSE;
+	enum Level {
+		sLow,
+		low,
+		medium,
+		intence,
+		sIntence
+	};
+	Level intencity=intence;
+	void setIntencity(float temp) {
+		if (intencity == sLow) {
+			if (temp > TEMP_LOW) {
+				intencity = low;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_LOW;
+			}
+	}
+		if (intencity == low) {
+			if (temp > TEMP_MEDIUM) {
+				intencity = medium;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_MED;
+				}
+				
+			else if (temp < TEMP_SLOW) {
+				intencity = sLow;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_SLOW;
+				}
+				
+		}
+		if (intencity == medium) {
+			if (temp > TEMP_INTENCE) {
+				intencity = intence;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_INTENCE;
+				}
+				
+			else if (temp < TEMP_LOW) {
+				intencity = low;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_LOW;
+				}
+				
+		}
+		if (intencity == intence) {
+			if (temp > TEMP_SINTENCE)
+			{
+				intencity = sIntence;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_SINTENCE;
+			}
+			else if (temp < TEMP_MEDIUM)
+			{
+				intencity = medium;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_MED;
+			}
+		}
+		if (intencity == sIntence) {
+			if (temp < TEMP_INTENCE) {
+				intencity = intence;
+				fanTimeToWork = FANPAUSE * FAN_RATIO_INTENCE;
+			}
+		}
+	};
+
 	void stop() {
 		on = false;
 		pauseOn = false;
@@ -353,18 +453,29 @@ public:
 		pauseStart = 0;
 		lastCheck = 0;
 		digitalWrite(RELAYFAN, LOW);
+		delay(500);
+		digitalWrite(RELAYFANREMOUT, LOW);
+		remoteFanOn = false;
 		blind.set(2);//set automated operation
 	}
-	bool start(unsigned long time = FANTIMETOWORK) {
+	bool start(unsigned long time=0) {
 		if (!on) {
 			if (!switchedOnTemp && !switchedOnAir && !switchedOnHumid) oneTimeStart = true;//set TRUE in case if the start() is called by telegram
 			on = true;
 			pauseOn = false;
-			setTimeToWork = time;
+			if (time != 0) {
+				setTimeToWork = time;
+			}
+			else {
+				setTimeToWork = fanTimeToWork;
+			}
 			lastCheck = millis();
 			display(7);
 			blind.set(1);//focre open
 			digitalWrite(RELAYFAN, HIGH);
+			delay(500);
+			digitalWrite(RELAYFANREMOUT, HIGH);
+			remoteFanOn = true;
 			return true;
 		}
 		return false;
@@ -374,10 +485,23 @@ public:
 		pauseOn = true;
 		on = false;
 		digitalWrite(RELAYFAN, LOW);
+		delay(500);
+		digitalWrite(RELAYFANREMOUT, LOW);
+		remoteFanOn = false;
 		setTimeToWork = 0;
 		display(7);
+		blind.set(2);//set automated operation to close if temp is less than treashold cause open state forces heat to flow away
+	}
+	void pauseReset() {
+		pauseStart = millis() + fanTimePause;
+		start();
 	}
 	void check() {
+		if (!oneTimeStart) { //if fan is not activated exteranly set intencity then time to work
+			setIntencity(DHTInDoor.temp);
+			setTimeToWork = fanTimeToWork;
+
+		}
 		if (on) {
 			if (millis() - lastCheck > setTimeToWork) {
 				if (!switchedOnTemp && !switchedOnAir && !switchedOnHumid) stop();
@@ -385,15 +509,28 @@ public:
 			}
 		}
 		if (pauseOn) {
-			if (millis() - pauseStart > FANPAUSE)start();
+			if (millis() - pauseStart > fanTimePause)start();
 		}
-		if (pauseOn && !switchedOnTemp && !switchedOnAir && !switchedOnHumid) stop();//complite stop if while pause fan is deactivated
+		if (pauseOn && !switchedOnTemp && !switchedOnAir && !switchedOnHumid) stop();//complete stop if while pause fan is deactivated
 		if (!pauseOn) {
 			if (switchedOnTemp || switchedOnAir || switchedOnHumid) start();//start by switchedOn
 		}
 		if (on && !oneTimeStart && !switchedOnTemp && !switchedOnAir && !switchedOnHumid) stop();
 	}
 } fan;
+
+bool get_field_value(String Message, String field, unsigned long* ulValue , float* floatValue ) {
+	int filedFirstLit = Message.indexOf(field);
+	if (filedFirstLit == -1) return false;
+	int fieldBegin = filedFirstLit + field.length();
+	int fieldEnd = Message.indexOf(';', fieldBegin);
+	String fieldString = Message.substring(fieldBegin, fieldEnd);
+	*floatValue = fieldString.toFloat();
+	*ulValue = fieldString.toDouble();
+	LOG(*floatValue)
+		LOG(*ulValue)
+		return true;
+}
 void display(int index=0) {
 	String line;
 	if (!man.displayUpdate || index == 7) {
@@ -443,6 +580,13 @@ void display(int index=0) {
 		const char* lineptr = line.c_str();
 		u8x8.drawString(0, 4, lineptr);
 	}
+	if (!mq135test.displayUpdate || !mq9test.displayUpdate) {
+		line = "M9:" + String(mq9test.value) + " M13:" + String(mq135test.value) + "  ";
+		air.displayUpdate = true;
+		sun.displayUpdate = true;
+		const char* lineptr = line.c_str();
+		u8x8.drawString(0, 4, lineptr);
+	}
 	if (index == 6) {
 		line = String(hour)+":"+String(min);
 		if (light.night)line += " NIGHT"; 
@@ -457,11 +601,18 @@ void display(int index=0) {
 void readsensors() {
 	indoorDHT22.read();
 	outdoorDHT22.read();
+#ifdef test
+	DHTInDoor.update(indoorTempTest, indoorHumidTest);
+	DHTOutDoor.update(outdoorTempTest, outdoorHumidTest);
+#else
 	DHTInDoor.update(indoorDHT22.readTemperature(), indoorDHT22.readHumidity());
 	DHTOutDoor.update(outdoorDHT22.readTemperature(), outdoorDHT22.readHumidity());
+#endif
 	if (DHTInDoor.invalidData || DHTOutDoor.invalidData)resetDHT();
 	sun.update( analogRead(SUNSENSOR));
 	air.update(analogRead(MQ135));
+	mq135test.update(analogRead(MQ135TEST));
+	mq9test.update(analogRead(MQ9TEST));
 	++sensor::dataReadCounter;
 }
 void resetDHT(bool action) {
@@ -477,71 +628,108 @@ void resetDHT(bool action) {
 }
 void sendDataToServer(int index) {
 	if (!index) {
-		String LogString = "Device:1;get:3;tempInDoor,humidInDoor,tempOutDoor,humidOurDoor,sunlight,air,state;";
+		String LogString = "Device:1;get:3;time,tempInDoor,humidInDoor,tempOutDoor,humidOurDoor,sunlight,air,state;";
 		Serial.println(LogString);
 		return;
 	}
-	byte state = B00000000;// construction of state
-	if (!man.invalidData)bitWrite(state, 0, 1);
-	if (fan.on)bitWrite(state, 1, 1);
-	if (blind.open)bitWrite(state, 2, 1);
-	if (blind.automatedOperation)bitWrite(state, 3, 1);
-	if (light.light1)bitWrite(state, 4, 1);
-	if (light.light2)bitWrite(state, 5, 1);
-	if (light.light1)bitWrite(state, 6, 1);
-	if (light.light1)bitWrite(state, 7, 1);
-	if (index == 2) Serial.println("temp:" + String(DHTInDoor.temp) + ";humid:" + String(DHTInDoor.humid) +
-		+";air:" + String(air.value) + ";status:" + String(state) + ";"); //send data to ESP
+	byte stateL = B00000000;// construction of state Low
+	if (!man.invalidData)bitWrite(stateL, 0, 1);
+	if (fan.on)bitWrite(stateL, 1, 1);
+	if (blind.open)bitWrite(stateL, 2, 1);
+	if (blind.automatedOperation)bitWrite(stateL, 3, 1);
+	if (light.light1)bitWrite(stateL, 4, 1);
+	if (light.light2)bitWrite(stateL, 5, 1);
+	if (light.automatedOperation)bitWrite(stateL, 6, 1);
+	if (light.automatedOperationWithOutHumanActiv)bitWrite(stateL, 7, 1);
+	byte stateH = B00000000;// construction of state High
+	if (fan.intencity==Fan::sLow)bitWrite(stateH, 0, 1);
+	if (fan.intencity == Fan::low)bitWrite(stateH, 1, 1);
+	if (fan.intencity == Fan::medium)bitWrite(stateH, 2, 1);
+	if (fan.intencity == Fan::intence)bitWrite(stateH, 3, 1);
+	if (fan.intencity == Fan::sIntence)bitWrite(stateH, 4, 1);
+	if (fan.remoteFanOn)bitWrite(stateH, 5, 1);
+	if (fan.pauseOn)bitWrite(stateH, 6, 1);
+	//if (light.light1)bitWrite(stateH, 7, 1);
+	char dataString[20] = { 0 };
+	sprintf(dataString, "%02X%02X", stateL, stateH);
+
+	/*if (index == 2) Serial.println("temp:" + String(DHTInDoor.temp) + ";humid:" + String(DHTInDoor.humid) +
+		+";air:" + String(air.value) + ";status:" + dataString + ";"); //send data to ESP */
+
+	if (index == 2) Serial.println("{" + String(DHTInDoor.temp) + "," + String(DHTInDoor.humid) + "," +
+		String(DHTOutDoor.temp) + "," + String(DHTOutDoor.humid) + "," + String(sun.value) + "," +
+		String(air.value) + "," + dataString + "," + String(mq135test.value) + "," + String(mq9test.value) + "}");
+
 	else {
 		DHTInDoor.updateBuf();
 		DHTOutDoor.updateBuf();
 		sun.updateBuf();
 		air.updateBuf();
+		mq135test.updateBuf();
+		mq9test.updateBuf();
 		String data2Send = "Device:1;get:2;";
 		Serial.println(data2Send + String(DHTInDoor.tempBuf) + "," + String(DHTInDoor.humidBuf) + "," +
 			String(DHTOutDoor.tempBuf) + "," + String(DHTOutDoor.humidBuf) + "," + String(sun.valueBuf) + "," +
-			String(air.valueBuf) + "," + String(state) + ";"); //to server
+			String(air.valueBuf) + "," + dataString + ","+String(mq135test.valueBuf)+","+ String(mq9test.valueBuf)+";"); //to server
 
 		DHTInDoor.resetBuf();
 		DHTOutDoor.resetBuf();
 		sun.resetBuf();
 		air.resetBuf();
+		mq135test.resetBuf();
+		mq9test.resetBuf();
 	}
 }
 void ReadDataSerial() { 
-	unsigned long temp;
-	int  index = 0;
+	unsigned long ULValue;
+	float floalValue;
 	String message;
-	while (Serial.available()) {
-		message = Serial.readStringUntil('\r');
-		Serial.println(message);
-		if (get_field_value(message, "connected:", &temp, &index)) {
-			task_CheckRespons.reLoop();
-			ServerConected = true;
-			display(3);
-		}
-		else if (get_field_value(message, "hour:", &temp, &index)) {
-			hour = (int)temp;
-			get_field_value(message, "min:", &temp, &index);
-			min = (int)temp;
-			display(6);
-		}
-		else if (get_field_value(message, "tempDifoff:", &temp, &index))tempDifoff = int(temp);
-		else if (get_field_value(message, "tempDifon:", &temp, &index))tempDifon = int(temp);
-		else if (get_field_value(message, "humidon:", &temp, &index))humidon = int(temp);
-		else if (get_field_value(message, "humidoff:", &temp, &index))humidoff = int(temp);
-		else if (get_field_value(message, "airDifoff:", &temp, &index))airDifoff = int(temp);
-		else if (get_field_value(message, "airDifon:", &temp, &index))airDifon = int(temp);
-		else if (get_field_value(message, "getsetting:", &temp, &index))sendSettings();
-		else if (get_field_value(message, "fanstart:", &temp, &index))fan.start(temp);//temp set time to work miliss
-		else if (get_field_value(message, "lightset:", &temp, &index))light.set(int(temp)); //set 0 to switch both off, 1: 1-on 2-off, 2: 1-off, 1-on, 3: both on, 3- automated loght oparation
-																		//4-automated operation, 5-night mode; 6-day mode
-		else if (get_field_value(message, "venetionBlind:", &temp, &index)) blind.set(int(temp));// set 0 to force close, 1-force open, 2-automated oparation
-		else if (get_field_value(message, "blindSetValue:", &temp, &index)) blind.setToValue(int(temp));// 
-		else if (get_field_value(message, "getLogString:", &temp, &index))sendDataToServer(0);//send LogString
 	
-	}
+		message = Serial.readStringUntil('\r');
+		LOG(message)
+			if (message.indexOf("connected:") != -1) {
+				task_CheckRespons.reLoop();
+				ServerConected = true;
+				display(3);
+			}
+			else if (get_field_value(message, "hour:", &ULValue, &floalValue)) {
+				hour = (int)ULValue;
+				get_field_value(message, "min:", &ULValue, &floalValue);
+				min = (int)ULValue;
+				display(6);
+			}
+			else if (message.indexOf("stFrSrv:") != -1) {
+				//else if (get_field_value(message, "stFrSrv:", &temp, &index)) {
+				if (get_field_value(message, "tempDifoff:", &ULValue, &floalValue))tempDifoff = floalValue;
+				if (get_field_value(message, "tempDifon:", &ULValue, &floalValue))tempDifon = floalValue;
+				if (get_field_value(message, "humidon:", &ULValue, &floalValue))humidon = floalValue;
+				if (get_field_value(message, "humidoff:", &ULValue, &floalValue))humidoff = floalValue;
+				if (get_field_value(message, "airDifoff:", &ULValue, &floalValue))airDifoff = floalValue;
+				if (get_field_value(message, "airDifon:", &ULValue, &floalValue))airDifon = floalValue;
+				task_askSettingFromServer.ignor = true;
+			}
+			else if (message.indexOf("getsetting:") != -1)sendSettings();
+			else if (get_field_value(message, "fanstart:", &ULValue, &floalValue))fan.start(ULValue);//temp set time to work miliss
+			else if (message.indexOf("pauseActivate") != -1) fan.pauseActivate();//called as a way to stop fan
+			else if (message.indexOf("pauseReset") != -1) fan.pauseReset();
+		else if (get_field_value(message, "lightset:", &ULValue, &floalValue))light.set(int(ULValue)); //set 0 to switch both off, 1: 1-on 2-off, 2: 1-off, 1-on, 3: both on, 3- automated loght oparation
+																		//4-automated operation, 5-night mode; 6-day mode
+		else if (get_field_value(message, "venetionBlind:", &ULValue, &floalValue)) blind.set(int(ULValue));// set 0 to force close, 1-force open, 2-automated oparation
+		else if (get_field_value(message, "blindSetValue:", &ULValue, &floalValue)) blind.setToValue(int(ULValue));// 
+		else if (message.indexOf("getLogString:") != -1)sendDataToServer(0);//send LogString
+		else if (message.indexOf("automatedOperationWithOutHumanActiv") != -1) light.automatedOperationWithOutHumanActiv = true;
+		else if (message.indexOf("automatedOperationWithHumanActiv") != -1) light.automatedOperationWithOutHumanActiv = false;
+		
+#ifdef test //indoorTempTest=5, indoorHumidTest=97, outdoorTempTest=-5, outdoorHumidTest=99;
+		else if (get_field_value(message, "indoorTempTest:", &ULValue, &floalValue))indoorTempTest = floalValue;
+		else if (get_field_value(message, "indoorHumidTest:", &ULValue, &floalValue))indoorHumidTest = floalValue;
+		else if (get_field_value(message, "outdoorTempTest:", &ULValue, &floalValue))outdoorTempTest = floalValue;
+		else if (get_field_value(message, "outdoorHumidTest:", &ULValue, &floalValue))outdoorHumidTest = floalValue;
+#endif
+		sendDataToServer(2);//send responce with data to ESP
+	
 }
+
 void sendSettings() {
 	String data2Send = "Device:1;settings:;tempDifoff:";
 	data2Send.concat(tempDifoff);
@@ -558,35 +746,8 @@ void sendSettings() {
 	data2Send.concat(";");
 	Serial.println(data2Send);
 }
-bool get_field_value(String Message, String field, unsigned long* value, int* index) {
-	int fieldBegin = Message.indexOf(field) + field.length();
-	int check_field = Message.indexOf(field);
-	int ii = 0;
-	*value = 0;
-	*index = 0;
-	bool indFloat = false;
-	if (check_field != -1) {
-		int filedEnd = Message.indexOf(';', fieldBegin);
-		if (filedEnd == -1) { return false; }
-		int i = 1;
-		char ch = Message[filedEnd - i];
-		while (ch != ' ' && ch != ':') {
-			if (isDigit(ch)) {
-				int val = ch - 48;
-				if (!indFloat)ii = i - 1;
-				else ii = i - 2;
-				*value = *value + ((val * pow(10, ii)));
-			}
-			else if (ch == '.') { *index = i - 1; indFloat = true; }
-			i++;
-			if (i > (filedEnd - fieldBegin + 1) || i > 10)break;
-			ch = Message[filedEnd - i];
-		}
 
-	}
-	else return false;
-	return true;
-}
+
 void setup() {
 	Serial.begin(9600);
 	indoorDHT22.begin();
@@ -594,34 +755,43 @@ void setup() {
 	Serial.println("Start");
 	myservo.attach(SERVODATA);
 	pinMode(RELAYFAN, OUTPUT);
+	pinMode(RELAYFANREMOUT, OUTPUT);
 	pinMode(RELAYLIGH1, OUTPUT);
 	pinMode(RELAYLIGH2, OUTPUT);
 	pinMode(RELAYSERVO, OUTPUT);
 	pinMode(DHTRESETRELAY, OUTPUT);
 	digitalWrite(DHTRESETRELAY, HIGH);
 	digitalWrite(RELAYFAN, LOW);
+	digitalWrite(RELAYFANREMOUT, LOW);
 	digitalWrite(RELAYLIGH1, HIGH);
 	digitalWrite(RELAYLIGH2, HIGH);
 	digitalWrite(RELAYSERVO, HIGH);
 	pinMode(HUMANSENSOR, INPUT);
 	pinMode(SUNSENSOR, INPUT);
 	pinMode(MQ135, INPUT);
+	pinMode(MQ9TEST, INPUT);
+	pinMode(MQ135TEST, INPUT);
 	u8x8.begin();
 	u8x8.setFont(u8x8_font_chroma48medium8_r);
 	blind.closeBlind();
 	task_resetDHT.ignor = true;
-}
+	
 
+}
 void loop() {
 	if (!sensor::overallDisplUpdate) display();
 	if (task_SensorRead.check()) {
 		readsensors();
 		light.check(sun.value);
-
 	}
 	if(task_ESPupdate.check())   sendDataToServer(2);
 	if (task_dataSend.check()) sendDataToServer(1);
+	if (task_askSettingFromServer.check()) Serial.println("Device:1;get:4;");//ask the server of settings
 	if (Serial.available()>0)ReadDataSerial();
+	/*if (Serial.available()>0) {
+		String message = Serial.readStringUntil('\r');
+		LOG(message);
+	}*/
 	man.update(digitalRead(HUMANSENSOR));
 	blind.check();
 	fan.check();
@@ -631,11 +801,18 @@ void loop() {
 	if (fan.switchedOnTemp) {
 		if(DHTInDoor.temp < TEMPTHRESHOLD + tempDifoff) fan.switchedOnTemp = false;
 	}
-	if (DHTInDoor.humid > DHTOutDoor.humid) {
-		if (DHTInDoor.humid > HUMIDTHRESHOLD + humidon)fan.switchedOnHumid = true;
+	if (DHTOutDoor.humid > HUMIDTHRESHOLD + humidon) {
+		if(int(DHTOutDoor.humid) + abs(humidoff)>88)humidTrget = 89 - abs(humidon);
+			else humidTrget = int(DHTOutDoor.humid) + abs(humidon);
+	}
+	if (DHTOutDoor.humid < HUMIDTHRESHOLD + humidoff)  humidTrget = HUMIDTHRESHOLD;
+	if (DHTInDoor.humid > humidTrget + humidon) {
+		//if (DHTInDoor.humid > DHTOutDoor.humid + humidon) {
+			if (DHTInDoor.humid > HUMIDTHRESHOLD + humidon)fan.switchedOnHumid = true;
+		//}
 	}
 	if (fan.switchedOnHumid) {
-		if (DHTInDoor.humid < HUMIDTHRESHOLD + humidoff) fan.switchedOnHumid = false;
+		if (DHTInDoor.humid < humidTrget + humidoff) fan.switchedOnHumid = false;
 	}
 	if (DHTInDoor.temp > BLINDTHRESHOLD+1)blind.blindTempToOpen=true;
 	else if (DHTInDoor.temp < BLINDTHRESHOLD )blind.blindTempToOpen = false;
